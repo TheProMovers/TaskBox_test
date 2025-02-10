@@ -1,52 +1,73 @@
 pipeline {
     agent any
 
-    parameters {
-        choice(name: 'EXECUTE_STAGE', 
-               choices: ['Clone Repository', 'Build Docker Image', 'Push to Local Registry'], 
-               description: 'Choose the stage to execute.')
+    environment {
+        DOCKER_REGISTRY = 'localhost:5000' // Local Docker Registry
+        IMAGE_NAME = 'frontend' // Docker 이미지 이름
+        KUBECONFIG_PATH = '/path/to/kubeconfig' // Kubernetes 인증 파일 경로
     }
 
-    environment {
-        DOCKER_REGISTRY = 'localhost:5000' // Local Docker Registry 주소
-        GIT_REPO_URL = 'https://github.com/TheProMovers/TaskBox_test' // GitHub 리포지토리 URL
-        GIT_BRANCH = 'main' // 사용할 Git 브랜치
-        GIT_CREDENTIAL = 'github-organization-token' // Jenkins에 저장된 GitHub 자격 증명 ID
-        IMAGE_NAME = 'taskbox-app' // Docker 이미지 이름
-    }
-  
     stages {
         stage('Clone Repository') {
-            when {
-                expression { params.EXECUTE_STAGE == 'Clone Repository' }
-            }
             steps {
-                git branch: "${GIT_BRANCH}", url: "${GIT_REPO_URL}", credentialsId: "${GIT_CREDENTIAL}"
+                // GitHub에서 코드 클론
+                git branch: 'main', url: 'https://github.com/TheProMovers/TaskBox_test.git'
+            }
+        }
+
+        stage('Install Dependencies & Build Frontend') {
+            steps {
+                // 프론트엔드 의존성 설치 및 빌드
+                script {
+                    sh """
+                    cd frontend
+                    npm ci --silent
+                    npm run build
+                    """
+                }
             }
         }
 
         stage('Build Docker Image') {
-            when {
-                expression { params.EXECUTE_STAGE == 'Build Docker Image' }
-            }
             steps {
+                // Docker 이미지 빌드
                 script {
                     sh """
-                    docker build -t ${IMAGE_NAME}:latest .
+                    docker build -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest -f frontend/Dockerfile ./frontend
                     """
                 }
             }
         }
 
         stage('Push to Local Registry') {
-            when {
-                expression { params.EXECUTE_STAGE == 'Push to Local Registry' }
-            }
             steps {
+                // 로컬 Docker Registry에 이미지 푸시
                 script {
                     sh """
-                    docker tag ${IMAGE_NAME}:latest ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest
                     docker push ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest
+                    """
+                }
+            }
+        }
+
+        stage('Update Kubernetes Deployment') {
+            steps {
+                // deployment.yaml 업데이트
+                script {
+                    sh """
+                    sed -i 's|image: .*|image: ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest|' k8s/frontend/deployment.yaml
+                    """
+                }
+            }
+        }
+
+        stage('Apply Kubernetes Deployment') {
+            steps {
+                // Kubernetes에 배포
+                script {
+                    sh """
+                    export KUBECONFIG=${KUBECONFIG_PATH}
+                    kubectl apply -f k8s/frontend/deployment.yaml
                     """
                 }
             }
