@@ -8,7 +8,7 @@ pipeline {
     }
 
     environment {
-        DOCKER_REGISTRY = 'localhost:5000' // Podman 또는 Docker 로컬 레지스트리 주소
+        DOCKER_REGISTRY = 'localhost:5000' // Podman 또는 Docker 로컬 레지스트리 주소!
         GIT_REPO_URL = 'https://github.com/TheProMovers/TaskBox_test' // GitHub 리포지토리 URL
         GIT_BRANCH = 'main' // 사용할 Git 브랜치
         GIT_CREDENTIAL = 'github-organization-token' // Jenkins에 저장된 GitHub 자격 증명 ID
