@@ -1,9 +1,8 @@
 pipeline {
-    agent any // Jenkins가 사용할 에이전트 지정
+    agent any
     environment {
         REGISTRY_URL = "localhost:5000" // Docker Registry URL
         FRONTEND_IMAGE = "${REGISTRY_URL}/taskbox_frontend:latest"
-        BACKEND_SERVICES = ['board-service', 'file-service', 'todo-service']
     }
     stages {
         stage('Frontend Build') {
@@ -23,7 +22,9 @@ pipeline {
             steps {
                 script {
                     echo 'Building Backend Services...'
-                    BACKEND_SERVICES.each { service ->
+                    // Groovy 스크립트 내에서 배열 선언
+                    def backendServices = ['board-service', 'file-service', 'todo-service']
+                    backendServices.each { service ->
                         dir("backend/${service}") { // backend 내부 각 서비스로 이동
                             sh '''
                             docker build -t ${REGISTRY_URL}/${service}:latest .
